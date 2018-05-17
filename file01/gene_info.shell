@@ -1,0 +1,45 @@
+#在进行生物信息分析的时候，常需要把gene的注释信息（第9列）提取出来附加到差异基因或目的基因的表格结果中，
+#但第9列的注释信息通常较多，且不同基因含部分注释信息不全部一致，一般我们只需要部分重要的a信息，如Dbxref、gene_biotype、deion。
+
+本文以ncbi上发布的人类GRCh38.p7版本注释文件为示例，使用awk命令进行该操作。
+
+（https://www.gnu.org/software/gawk/manual/gawk.html）
+
+1、下载目的物种注释文件：
+# （ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF_000001405.33_GRCh38.p7/GCF_000001405.33_GRCh38.p7_genomic.gff.gz）
+# 然后对 GCF_000001405.33_GRCh38.p7_genomic.gff.gz 进行解压操作，
+# 得到解压文GCF_000001405.33_GRCh38.p7_genomic.gff；
+这里用的是小鼠的GCF_000001635.26_GRCm38.p6_genomic.gff
+
+2、查看第9列有哪些注释信息：
+
+awk 'BEGIN{FS=OFS="\t"} $3=="gene"{split($9, a, ";"); for(i in a){split(a[i], b, "="); if(++c[b[1]]==1) print b[1]}}' GCF_000001635.26_GRCm38.p6_genomic.gff
+
+运行显示结果有：
+description
+gbkey、gene、gene_biotype、gene_synonym、partial、start_range、end_range
+ID、Dbxref、Name
+exception、Note
+
+然后使用以下命令查看gff3文件中的结果：
+
+awk -F "\t" '$3=="gene"{print $9}' GCF_000001635.26_GRCm38.p6_genomic.gff | cat -n | less
+
+可以看到最后一列的注释信息：attributes
+
+3、下面使用awk进行基因注释信息提取（以提取Dbxref、gene_biotype、deion信息为例）：
+
+awk 'BEGIN{FS=OFS="\t"} $3=="gene"{print $0}' GCF_000001635.26_GRCm38.p6_genomic.gff | sed 's/;/\t/g' | 
+awk 'BEGIN{FS=OFS="\t"} {for(i=1; i<=NF; i++){split($i, a, "="); b[a[1]]=a[2]}} {print b["Name"],b["Dbxref"],b["gene_biotype"],b["deion"]} {split("", b, ":")}'
+
+终端显示的提取信息（tab分隔，依次为Name、Dbxref、gene_biotype、deion）：
+说明：部分基因不包含某些注释信息，如LOC105379212基因没有deion信息，则在对应列为空字符。
+
+4、对应终端打印的提取信息，可以添加表头和生成文件，同时对应部分出现在多个染色体的基因在第1列会重复，请对3中的结果进行以下操作即可:
+
+sed ‘1i Name\tDbxref\tgene_biotype\tdeion’ | awk -F “\t” ‘++a[$1]==1’
+
+
+awk 'BEGIN{FS=OFS="\t"} $3=="region"||$3=="gene"{print $0}' GCF_000001635.26_GRCm38.p6_genomic.gff | sed 's/;/\t/g' | 
+awk 'BEGIN{FS=OFS="\t"} {for(i=1; i<=NF; i++){split($i, a, "="); b[a[1]]=a[2]}} {print b["Name"],b["Dbxref"],b["gene_biotype"],b["deion"]} {split("", b, ":")}'
+
